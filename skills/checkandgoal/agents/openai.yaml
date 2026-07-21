@@ -1,0 +1,4 @@
+interface:
+  display_name: "CheckAndGoal"
+  short_description: "Planner validates phases and routes repairs"
+  default_prompt: "Use $checkandgoal in the planner/checker session to validate the completed phase, resolve executor routing with a bounded candidate check on failure, include a planner return target, report repair notification as sent or blocked, and run $goalnext after PASS."

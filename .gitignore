@@ -1,0 +1,15 @@
+# Local Codex runtime state
+Role.md
+.codex/runtime/
+
+# Editor and operating-system noise
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
+
+# Temporary and generated validation output
+*.tmp
+*.log
+artifacts/

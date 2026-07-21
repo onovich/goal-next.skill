@@ -1,0 +1,4 @@
+interface:
+  display_name: "DoNextGoal"
+  short_description: "Executor runs goal guide and reports back"
+  default_prompt: "Use $donextgoal to execute the planner-dispatched goal guide once, avoid recursive skill calls, and before the final response report planner notification as sent, duplicate, or blocked through Role.md, dispatch return target, or a bounded planner candidate check."

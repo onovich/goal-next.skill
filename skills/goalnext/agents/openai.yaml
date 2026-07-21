@@ -1,0 +1,4 @@
+interface:
+  display_name: "GoalNext"
+  short_description: "Planner creates next goal guide and dispatches executor"
+  default_prompt: "Use $goalnext as the project architect/strategist to write the next phase goal guide from settled consensus, resolve executor routing with a bounded candidate check, update Role.md, dispatch one $donextgoal message with a planner return target, and report dispatch as sent, duplicate, or blocked."

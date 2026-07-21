@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "initializedMarker": "codex-project-git-workflow: initialized",
+  "initializedAt": "2026-07-21T15:47:26.3950496+08:00",
+  "projectName": "GoalNext Skill Workflows",
+  "repoRoot": ".",
+  "safeDirectory": "",
+  "statusCommand": "git status --short --branch",
+  "validationCommands": [
+    "powershell -ExecutionPolicy Bypass -File scripts/Validate-Skills.ps1",
+    "git diff --check"
+  ],
+  "stagingPolicy": "selected files only",
+  "commitCommand": "",
+  "pushCommand": "git push -u origin HEAD",
+  "docsRequirement": "Update README.md and ROADMAP.md when public workflow scope changes.",
+  "forbiddenCommands": "No force push. Do not commit credentials, auth state, real thread ids, personal paths, or other sensitive data."
+}

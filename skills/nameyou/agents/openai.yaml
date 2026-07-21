@@ -1,0 +1,4 @@
+interface:
+  display_name: "NameYou"
+  short_description: "Record thread roles in Role.md"
+  default_prompt: "Use $nameyou to record this thread's role in Role.md."

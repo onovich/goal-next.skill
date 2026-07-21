@@ -1,0 +1,4 @@
+interface:
+  display_name: "ListToDecide"
+  short_description: "List decisions, options, and recommendation"
+  default_prompt: "Use $listtodecide to list the decisions that need my call, explain options and tradeoffs, state your recommendation, and wait for my decision."

@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "name": "goal-next-workflows",
+  "skills": [
+    {
+      "name": "nameyou",
+      "path": "skills/nameyou",
+      "displayName": "NameYou"
+    },
+    {
+      "name": "listtodecide",
+      "path": "skills/listtodecide",
+      "displayName": "ListToDecide"
+    },
+    {
+      "name": "goalnext",
+      "path": "skills/goalnext",
+      "displayName": "GoalNext"
+    },
+    {
+      "name": "donextgoal",
+      "path": "skills/donextgoal",
+      "displayName": "DoNextGoal"
+    },
+    {
+      "name": "checkandgoal",
+      "path": "skills/checkandgoal",
+      "displayName": "CheckAndGoal"
+    }
+  ],
+  "workflowEdges": [
+    {
+      "from": "nameyou",
+      "to": "goalnext",
+      "kind": "route-bootstrap"
+    },
+    {
+      "from": "listtodecide",
+      "to": "goalnext",
+      "kind": "decision-input"
+    },
+    {
+      "from": "goalnext",
+      "to": "donextgoal",
+      "kind": "dispatch"
+    },
+    {
+      "from": "donextgoal",
+      "to": "checkandgoal",
+      "kind": "completion-report"
+    },
+    {
+      "from": "checkandgoal",
+      "to": "goalnext",
+      "kind": "pass-loop"
+    },
+    {
+      "from": "checkandgoal",
+      "to": "donextgoal",
+      "kind": "repair-dispatch"
+    }
+  ]
+}
