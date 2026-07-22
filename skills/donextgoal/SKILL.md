@@ -1,6 +1,6 @@
 ---
 name: donextgoal
-description: Executor-side skill for carrying out an existing next-phase goal-mode guide within its estimated conversation rounds, including planner-dispatched tasks from Role.md routing. Use when the user or planner session asks Codex to read the next stage/phase goal document and execute it, follow per-round Debug and architecture self-checks, validate each round, push after passing validation, and report completion back to the planner/checker session. If the active role is not the executor/programmer role assigned in Role.md, stop instead of executing.
+description: Execution-role skill for carrying out an existing next-phase goal-mode guide within its approved round and optional token budget, including planner-dispatched tasks routed to a frontend, backend, art, operations, default executor, or other Role.md execution lane. Use when the user or planner asks the current visible Role Thread to execute its assigned guide, validate and push each round, and report completion to the upstream planner/checker. If the current thread is not the dispatch's target_role or an approved legacy executor, stop instead of executing.
 ---
 
 # DoNextGoal
@@ -25,8 +25,10 @@ Continue only when it returns `roadmap_gate: READY`. Verify that the active guid
 
 Before implementation:
 
-- Proceed only when the active role is an executor, main programmer, implementation owner, or delivery-side agent assigned to run the goal.
-- If `Role.md` exists, verify that the current thread matches `executor.thread_id` or is explicitly confirmed by the user as the replacement executor.
+- Proceed only when the active role is an execution owner assigned to run the goal.
+- Resolve the dispatch's `target_role` first. If it is absent, use `active_goal_target_role`, then a compatible `default_executor`, then the legacy `executor` role.
+- If `Role.md` exists, require the current thread to match the selected role section's `thread_id`, and require that section to have `workflow_role: executor` or be the compatible legacy `executor` section. A title match is not enough.
+- If several execution roles are plausible or the current thread matches none, stop and ask the user to repair the route; do not choose a lane from implementation details alone.
 - If the active role is planner, architect, strategist,主策, or validation owner, stop and state that `DoNextGoal` belongs to the executor role.
 - If the role is unclear, ask the user to confirm before editing files or creating a goal.
 
@@ -35,13 +37,13 @@ Before implementation:
 Run this as an internal preflight before implementation and before reporting completion. Do not narrate successful Role.md search/create/update work to the user or include it in cross-session messages.
 
 - Locate `Role.md` in the current log/workspace area and validate that its workspace matches the active workspace.
-- If `Role.md` exists, read planner/executor routing, active guide, active phase, and idempotency fields.
-- If `Role.md` is missing but the planner dispatch message contains enough planner and executor identity evidence, create `Role.md` exactly once.
-- If `Role.md` is missing and the user directly invoked DoNextGoal with an unambiguous active guide and executor role, proceed with execution but mark planner routing as unresolved until the Mandatory Completion Routing Gate finishes. Do not start a new phase after completion unless planner routing is resolved.
+- If `Role.md` exists, read the central planner route, selected execution role, active guide, active phase, `active_goal_target_role`, approved budget fields, and idempotency fields.
+- If `Role.md` is missing but the planner dispatch message contains enough planner and target-role identity evidence, create `Role.md` exactly once using only those verified fields.
+- If `Role.md` is missing and the user directly invoked DoNextGoal with an unambiguous active guide and execution role, proceed with execution but mark planner routing as unresolved until the Mandatory Completion Routing Gate finishes. Do not start a new phase after completion unless planner routing is resolved.
 - If `Role.md` is missing and neither a planner dispatch nor an unambiguous active guide exists, stop as BLOCKED and ask for routing confirmation.
-- If `Role.md` exists but lacks executor fields, merge only missing executor fields after the current executor role/thread is confirmed. Never overwrite existing planner or executor thread id/role silently.
+- If `Role.md` exists but lacks selected-role fields, merge only missing fields after the current execution role/thread is confirmed. Never overwrite an existing planner or execution-role thread id/role silently.
 - If current evidence conflicts with `Role.md`, stop and ask the user to confirm replacement. Do not create a second `Role.md`.
-- Update only execution-specific idempotency fields such as `last_executor_report_commit`, `last_executor_report_status`, `last_executor_report_at`, and `last_executor_report_guide`.
+- Update only execution-specific idempotency fields such as `last_executor_report_commit`, `last_executor_report_status`, `last_executor_report_at`, `last_executor_report_guide`, and `last_executor_report_role`.
 - Do not duplicate a completion notification when `Role.md` already records the same guide and final commit/status as reported, but still report the duplicate state explicitly in the final response.
 - Surface routing details only when routing is BLOCKED, conflicted, or explicitly requested.
 
@@ -93,8 +95,8 @@ When this skill is triggered by a planner message:
 
 - Treat the current message as the `$donextgoal` invocation when it already contains `$donextgoal`. Do not ask the user to invoke `$donextgoal` again, do not send yourself another `$donextgoal` message, and do not reload this skill recursively.
 - If the planner message names a guide path, use that guide as the active guide after verifying it exists. Do not waste a search pass unless the named guide is missing or contradicted by repository handoff.
-- Use the hidden RoleRoute preflight for planner/executor routing, active guide, active phase, and idempotency fields.
-- If `Role.md` records the same `active_goal_guide` and this executor has already reported the same final commit or status, do not duplicate the completion notification unless the user explicitly asks to resend.
+- Require the message's `target_role` to resolve to this thread through the hidden RoleRoute preflight. Use the central planner route, active guide, active phase, approved budget, and idempotency fields.
+- If `Role.md` records the same `active_goal_guide` and this target role has already reported the same final commit or status, do not duplicate the completion notification unless the user explicitly asks to resend.
 - If the dispatch asks for a repair rather than a full phase, fix only the listed issues, validate the affected surface, and report back for planner re-check instead of advancing to a new phase.
 
 ## Core Workflow
@@ -114,6 +116,8 @@ When this skill is triggered by a planner message:
 
 3. Start or resume the goal.
    - If a goal tool is available and the user explicitly asked to execute the goal, create or continue a goal with the objective from the guide.
+   - If the selected role has a positive `goal_token_budget` in active `Role.md` and the planner dispatch repeats the same value, treat the approved Role Graph as explicit budget authorization and pass that exact value when creating the goal. Otherwise omit the token budget.
+   - Never infer a token budget from round count, model, plan tier, quota, or remaining context. A round budget remains an instructional workflow boundary.
    - Track the current round number, total estimated rounds, and whether buffer rounds have started.
    - Do not mark the goal complete until the guide's final validation criteria pass.
    - Mark blocked only after the same blocker has repeated for the required blocked threshold and no meaningful progress remains.
@@ -152,11 +156,11 @@ When this skill is triggered by a planner message:
 
 9. Report completion back to the planner.
    - This step is mandatory for workflow completion; the executor's local final answer alone is not enough.
-   - Read `Role.md` and resolve `planner.thread_id`; if missing, run Bounded Planner Resolution.
+   - Read `Role.md` and resolve the selected role's upstream planner/checker, then `central_role`, then the legacy `planner.thread_id`; if missing, run Bounded Planner Resolution.
    - Send one concise message to the planner/checker thread with status, phase, guide path, final commit, push result, PASS report path, and key validation commands.
    - If this was a repair task, ask the planner/checker to rerun CheckAndGoal.
    - If this was a full goal execution, ask the planner/checker to run CheckAndGoal and, if PASS, proceed into GoalNext.
-   - Update `Role.md` idempotency fields such as `last_executor_report_commit`, `last_executor_report_status`, `last_executor_report_at`, and `last_executor_report_guide` when possible before or immediately after sending.
+   - Update `Role.md` idempotency fields such as `last_executor_report_commit`, `last_executor_report_status`, `last_executor_report_at`, `last_executor_report_guide`, and `last_executor_report_role` when possible before or immediately after sending.
    - Do not send a duplicate report when the same guide and final commit/status have already been reported, unless the user explicitly asks to resend.
    - If thread tools are unavailable, planner routing is missing, candidates are ambiguous, or sending fails, report the local completion and mark planner notification as BLOCKED.
 
@@ -284,8 +288,9 @@ Use a compact message like:
 ```text
 Role routing message
 
-from: executor
+from: <target-role>
 to: planner
+target_role: <target-role-key>
 workspace: <absolute workspace path>
 phase: <Phase N>
 action: recheck

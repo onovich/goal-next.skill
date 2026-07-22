@@ -26,7 +26,7 @@ Skip this call only when CreateRoadmap explicitly supplies both `caller: creater
 ## Boundaries
 
 - Start only after an explicit `$askme` invocation from another skill or the user.
-- Do not invoke `grill-me`, `grill-with-docs`, `grilling`, `domain-modeling`, or another interview skill.
+- Do not invoke any external interview, roadmapping, or domain-modeling skill. AskMe is self-contained.
 - Do not create threads, subagents, tasks, goals, tickets, or external messages.
 - Do not implement the design, finalize the caller's artifact, or continue the caller's workflow.
 - Do not create a separate interview log. The caller-owned target draft is the durable record.

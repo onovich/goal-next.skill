@@ -6,19 +6,19 @@
       "name": "createroadmap",
       "path": "skills/createroadmap",
       "displayName": "CreateRoadmap",
-      "invocation": "support",
-      "optionalDependencies": [
-        "grill-me"
-      ]
+      "invocation": "support"
     },
     {
       "name": "roadmapgate",
       "path": "skills/roadmapgate",
       "displayName": "RoadmapGate",
-      "invocation": "internal",
-      "optionalDependencies": [
-        "grill-me"
-      ]
+      "invocation": "internal"
+    },
+    {
+      "name": "createrole",
+      "path": "skills/createrole",
+      "displayName": "CreateRole",
+      "invocation": "core-entry"
     },
     {
       "name": "choosemodel",
@@ -64,6 +64,11 @@
     }
   ],
   "workflowEdges": [
+    {
+      "from": "createrole",
+      "to": "roadmapgate",
+      "kind": "confirmed-roadmap-prerequisite"
+    },
     {
       "from": "choosemodel",
       "to": "roadmapgate",
@@ -118,6 +123,26 @@
       "from": "createroadmap",
       "to": "goalnext",
       "kind": "confirmed-handoff"
+    },
+    {
+      "from": "createrole",
+      "to": "askme",
+      "kind": "role-graph-interview"
+    },
+    {
+      "from": "createrole",
+      "to": "choosemodel",
+      "kind": "thread-profile"
+    },
+    {
+      "from": "createrole",
+      "to": "nameyou",
+      "kind": "role-route-registration"
+    },
+    {
+      "from": "createrole",
+      "to": "goalnext",
+      "kind": "ready-handoff"
     },
     {
       "from": "nameyou",

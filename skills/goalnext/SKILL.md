@@ -1,11 +1,11 @@
 ---
 name: goalnext
-description: Architect/strategist-only skill for creating the next-phase goal-mode execution guide after a phase is accepted, then dispatching that guide to the executor session recorded in Role.md. Use when the user asks an architecture or strategy role to output the next stage/phase goal document, estimate conversation rounds, define Debug and architecture self-checks, require validation before push, and require push before moving to the next round. If the active role is a programmer, implementation executor, maintainer executing the current goal, or other delivery-side agent, trigger this skill only to refuse the role-inverted request and route it to the architect/strategist.
+description: Architect/strategist-only skill for creating the next-phase goal-mode execution guide after a phase is accepted, selecting the approved downstream execution role from Role.md, and dispatching the guide to that visible thread. Use when the user asks a planning role to output the next phase goal document, target a frontend/backend/art/operations or default executor lane, estimate conversation rounds, define validation and self-checks, and require push before moving to the next round. If the active role is a delivery-side agent, trigger this skill only to refuse the role-inverted request and route it to the planner.
 ---
 
 # GoalNext
 
-Use this skill to produce a reusable next-phase goal guide, not merely a chat answer. It is the planner-side companion to `DoNextGoal`: after writing the guide, dispatch the executor through `Role.md` instead of asking the user to relay the plan.
+Use this skill to produce a reusable next-phase goal guide, not merely a chat answer. It is the planner-side companion to `DoNextGoal`: after writing the guide, select one approved execution route through `Role.md` and dispatch it instead of asking the user to relay the plan.
 
 ## Mandatory Roadmap Gate
 
@@ -39,51 +39,65 @@ Use `Role.md` as the cross-session routing source of truth, but keep routing mec
 - Locate `Role.md` in the current log/workspace area before dispatching.
 - If `Role.md` exists, read it and validate that its workspace matches the active workspace.
 - If `Role.md` is missing, create it exactly once only after the planner role and planner thread id are known. Record only the planner route, workspace, evidence, timestamps, and supported idempotency fields. If the planner thread id is unavailable, do not invent it; dispatch must be blocked unless the return target is otherwise explicit.
-- Resolve the executor from `Role.md` first. If executor fields are missing, inspect same-workspace Codex threads and identify the session that actually owns implementation for the current requirement. Merge only those missing executor fields into `Role.md`.
-- Never overwrite an existing planner or executor thread id/role silently. If current evidence conflicts with `Role.md`, stop and ask the user to confirm replacement.
+- Resolve the target execution role from the approved Role Graph first. Use the explicit `target_role` in the request or phase evidence, then a compatible `default_executor`, then the legacy `executor` route. If several downstream execution roles remain plausible, ask the user to choose before dispatch.
+- If the selected execution route is missing fields, inspect same-workspace Codex threads and identify the session that actually owns that implementation lane. Merge only missing fields into the selected role section.
+- Never overwrite an existing planner or execution-role thread id/role silently. If current evidence conflicts with `Role.md`, stop and ask the user to confirm replacement.
 - Do not create a second `Role.md` when one already exists. If the current log area is ambiguous, use the active workspace root only when no existing `Role.md` is found in the searched areas.
-- Keep idempotency fields in `Role.md`: `active_goal_guide`, `active_goal_phase`, `last_planner_dispatch`, `last_planner_dispatch_status`, `last_planner_dispatch_guide`, `last_planner_dispatch_commit`, `last_executor_report_commit`, and `last_check_status`.
+- Keep idempotency fields in `Role.md`: `active_goal_guide`, `active_goal_phase`, `active_goal_target_role`, `last_planner_dispatch`, `last_planner_dispatch_status`, `last_planner_dispatch_guide`, `last_planner_dispatch_commit`, `last_planner_dispatch_target_role`, `last_executor_report_commit`, and `last_check_status`.
 - Re-scan other threads only when `Role.md` is missing, incomplete, stale, contradicted by the user, or points to the wrong workspace.
 - Surface routing details only when routing is BLOCKED, conflicted, or explicitly requested.
 
-### Bounded Executor Resolution
+### Role Graph Target Selection
 
-Use this before dispatch when `Role.md` has no usable executor.
+Select exactly one execution role before writing the final dispatch:
+
+1. If the user or accepted phase evidence names `target_role`, require that exact role key to exist in `Role.md`, have `workflow_role: executor`, be downstream of the current planner, and have a real thread id.
+2. Otherwise use `default_executor` only when it names a compatible ready execution role for the phase.
+3. Otherwise use the legacy `executor` section when it is the only compatible execution route.
+4. Otherwise, if exactly one ready downstream role has `workflow_role: executor`, use it and state that selection in the guide.
+5. If more than one route is plausible, show the role keys, responsibilities, and recommended target, then ask the user to choose. Do not dispatch to every downstream role and do not duplicate the Goal Guide.
+6. Record the selected key as `active_goal_target_role` and `last_planner_dispatch_target_role` with the usual idempotency evidence.
+
+The execution role's `round_budget` constrains the guide when it is narrower than the planner's estimate. Include an approved positive `goal_token_budget` in the dispatch only when it is present in that role section; otherwise omit it. These fields do not imply account quota.
+
+### Bounded Execution-Role Resolution
+
+Use this before dispatch only when Role Graph Target Selection identifies one role key but `Role.md` has no usable thread for that role. For a legacy two-role file, the role key is `executor`.
 
 1. Build a same-workspace recent candidate pool first. Use available thread listing/search tools to collect up to the six most recent same-cwd/same-workspace threads, excluding the current thread when its id is known.
-2. Compare candidate titles and previews with the current thread title/recent request, active phase, guide basename, branch, and implementation lane. A same-workspace title such as `执行者-主线` or `执行者-多模块` is useful even when a specific guide query returns no results.
+2. Compare candidate titles and previews with the selected role key and title, current request, active phase, guide basename, branch, and implementation lane. A same-workspace title such as `执行者-主线`, `前端`, or `后端` is useful only when it matches the selected lane.
 3. If the recent candidate pool is empty or weak, use a small query plan, not one long concatenated query. Run at most three short searches:
    - project/workspace name alone
-   - executor role clue alone, such as `执行者`, `executor`, or `main programmer`
+   - selected execution-role clue alone, such as the role key, `执行者`, `frontend`, `backend`, or `main programmer`
    - guide-specific phase/workstream clue alone, such as the phase name, guide basename, branch name, or implementation lane
 4. Do not combine all clues into a single strict search string. If the specific guide query returns no results, continue with the broader project and role queries inside the same bounded pass.
-5. Merge candidates from the recent pass and query pass, filter by same workspace/cwd first, then rank by executor role in title/preview, relevant implementation lane, active guide/phase mention, and recency.
-6. If exactly one summary clearly matches the executor role and implementation lane, use it as high confidence without reading extra history.
+5. Merge candidates from the recent pass and query pass, filter by same workspace/cwd first, then rank by selected-role evidence in title/preview, relevant implementation lane, active guide/phase mention, and recency.
+6. If exactly one summary clearly matches the selected execution role and lane, use it as high confidence without reading extra history.
 7. If summaries are plausible but not decisive, read at most the two strongest same-workspace candidates' latest turns.
-8. Treat the executor as high confidence only when exactly one candidate has executor role evidence and is already working on the relevant implementation lane.
-9. If high confidence, create or update `Role.md` once with the planner fields, executor fields, active guide, active phase, and idempotency fields, then dispatch.
+8. Treat the route as high confidence only when exactly one candidate has selected-role evidence and is already working on the relevant implementation lane.
+9. If high confidence, create or update `Role.md` once with the planner fields, selected execution-role fields, active guide, active phase, target role, and idempotency fields, then dispatch.
 10. If candidates are plausible but ambiguous, stop after writing and validating the guide. Ask the user to choose, show candidate thread ids/titles, and recommend one. Record dispatch as BLOCKED when `Role.md` can be updated safely.
 11. If no plausible candidate or thread tools are unavailable, report dispatch as BLOCKED with the missing routing detail.
 
-Do not keep searching beyond this bounded pass. GoalNext's job is to produce a guide and route it when the route is clear, not to perform open-ended thread archaeology.
+Do not keep searching beyond this bounded pass. GoalNext's job is to produce a guide and route it when the selected route is clear, not to perform open-ended thread archaeology.
 
 ## Mandatory Dispatch Routing Gate
 
 Do not finish GoalNext after guide creation alone. After the guide is written, validated, and committed/pushed when required, force exactly one dispatch terminal state:
 
-- `SENT`: one `$donextgoal` dispatch message was sent to the executor thread.
+- `SENT`: one `$donextgoal` dispatch message was sent to the selected execution-role thread.
 - `DUPLICATE`: the same guide + commit was already dispatched and the user did not request resend.
-- `BLOCKED`: executor routing, planner return identity, thread tools, or the send operation was missing, ambiguous, or failed.
+- `BLOCKED`: target-role routing, planner return identity, thread tools, or the send operation was missing, ambiguous, or failed.
 
 Rules:
 
 - Run this gate for initial planning and for post-CheckAndGoal PASS planning.
 - The final response must include `dispatch result: SENT | DUPLICATE | BLOCKED`.
-- If dispatch is `SENT`, include the executor thread id in the final response and update `Role.md` idempotency fields when possible.
-- If dispatch is `DUPLICATE`, do not resend, but include the prior executor thread id and dispatch evidence when available.
+- If dispatch is `SENT`, include the target role and its thread id in the final response and update `Role.md` idempotency fields when possible.
+- If dispatch is `DUPLICATE`, do not resend, but include the prior target role, thread id, and dispatch evidence when available.
 - If dispatch is `BLOCKED`, keep the guide as a planner artifact, but do not imply the executor has been notified. Include candidate thread ids/titles or the exact missing input the user must provide.
 - Every dispatch message must include a return target for executor completion: `planner_thread_id` or `return_to_thread` when known. This lets `DoNextGoal` report back even if `Role.md` is later missing.
-- Never send a dispatch without a usable executor route and a usable planner return target.
+- Never send a dispatch without one usable execution route and a usable planner return target.
 
 ## Workflow
 
@@ -136,15 +150,15 @@ Rules:
    - If the repository has a docs lint or structure check, run it.
    - For docs-only guide creation, do not run the full build unless local policy requires it.
 
-9. Dispatch the guide to the executor.
-   - After the guide is validated and any required commit/push is complete, resolve the executor from `Role.md` or Bounded Executor Resolution.
-   - Update `Role.md` with the active guide path, phase, dispatch timestamp, and dispatch status when it is safe to do so.
+9. Dispatch the guide to the selected execution role.
+   - After the guide is validated and any required commit/push is complete, run Role Graph Target Selection, then use `Role.md` or Bounded Execution-Role Resolution.
+   - Update `Role.md` with the active guide path, phase, target role, dispatch timestamp, and dispatch status when it is safe to do so.
    - Run the Mandatory Dispatch Routing Gate before the final response.
-   - Send exactly one concise message to the executor thread recorded in `Role.md`.
-   - Include the planner return target, guide path, phase name, round budget, latest commit/push evidence, key non-scope boundaries, and exactly one `$donextgoal` instruction.
+   - Send exactly one concise message to the selected execution-role thread recorded in `Role.md`.
+   - Include `target_role`, the planner return target, guide path, phase name, round budget, an approved goal token budget when present, latest commit/push evidence, key non-scope boundaries, and exactly one `$donextgoal` instruction.
    - Do not paste the full guide into the message. The executor must read the guide from the repository.
    - Do not send a duplicate dispatch when `Role.md` already records the same `active_goal_guide` or `last_planner_dispatch_guide` with `last_planner_dispatch_status: sent` for the same guide and commit, unless the user explicitly asks to resend.
-   - If executor routing is ambiguous, ask the user to choose from the bounded candidates and do not send the dispatch yet.
+   - If target-role routing is ambiguous, ask the user to choose from the approved Role Graph and do not send the dispatch yet.
    - If thread tools are unavailable or dispatch fails, report the guide as created but dispatch as BLOCKED.
 
 ## Dispatch Message Shape
@@ -155,7 +169,8 @@ Use a compact message like:
 Role routing message
 
 from: planner
-to: executor
+to: <target-role>
+target_role: <target-role-key>
 workspace: <absolute workspace path>
 planner_thread_id: <current planner/checker thread id when known>
 return_to_thread: <same planner/checker thread id>
@@ -163,6 +178,7 @@ phase: <Phase N>
 action: execute_goal
 guide: <absolute or repo-relative guide path>
 round_budget: <n>
+goal_token_budget: <approved positive value, or omit this line>
 status: READY
 evidence:
 - commit: <hash>

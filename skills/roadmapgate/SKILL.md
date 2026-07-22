@@ -1,6 +1,6 @@
 ---
 name: roadmapgate
-description: Internal prerequisite gate for every operational GoalNext workflow skill. Explicitly invoke $roadmapgate before the caller does other preflight or work; it locates canonical Roadmap evidence, requires the exact confirmed marker, recommends user-owned Roadmap design or $grill-me for AI assistance, offers $createroadmap only as an approved fallback, and returns a small terminal status to the caller.
+description: Internal prerequisite gate for every operational GoalNext workflow skill. Explicitly invoke $roadmapgate before the caller does other preflight or work; it accepts a substantive ROADMAP.md as confirmed filename evidence, treats ROADMAP.proposed.md as an unconfirmed draft, recommends user-owned Roadmap design, offers $createroadmap only as an approved fallback, and returns a small terminal status to the caller without invoking external planning skills.
 ---
 
 # RoadmapGate
@@ -40,28 +40,23 @@ Check candidates in this order:
 
 1. A caller-supplied `roadmap_path`, resolved inside the selected workspace.
 2. `<workspace-root>/ROADMAP.md`.
-3. One explicit canonical Roadmap link in a root README, TODO, or handoff document.
 
-Use only readable project files. Do not scan outside the selected workspace. Do not accept a filename, chat assertion, unchecked TODO item, Goal Guide, issue list, or task plan as confirmation evidence.
+A confirmed candidate must have the exact basename `ROADMAP.md`. An explicit path with another basename is not confirmation evidence. Use only readable project files and never scan outside the selected workspace.
 
-If an earlier source identifies a candidate, do not silently switch to a later one. If a canonical link is malformed, leaves the workspace, or resolves to more than one candidate, return `BLOCKED` and identify the ambiguity.
+When no confirmed candidate exists, check the matching `ROADMAP.proposed.md` path and then `<workspace-root>/ROADMAP.proposed.md` so the user can continue an existing draft. Do not treat a chat assertion, README link, unchecked TODO item, Goal Guide, issue list, task plan, or arbitrary filename as confirmation evidence.
+
+If the explicit and root candidates identify different `ROADMAP.md` files, or a path leaves the workspace, return `BLOCKED` and identify the ambiguity. A proposal beside an already confirmed `ROADMAP.md` does not invalidate the current confirmed Roadmap; it remains inactive until explicitly promoted.
 
 ## Verify Confirmation
 
-Read the complete candidate and require this exact standalone marker near its top:
-
-```text
-<!-- codex-roadmap: confirmed -->
-```
-
-The file must also contain substantive phase outcomes or equivalent long-term sequencing. The marker is necessary but not sufficient when the file is empty, malformed, or clearly unrelated to the active workspace.
+Read the complete candidate. The exact filename is necessary but not sufficient: `ROADMAP.md` must contain substantive phase outcomes or equivalent long-term sequencing and must be related to the active workspace. An empty, malformed, or clearly unrelated file returns `BLOCKED`.
 
 Classify evidence as:
 
-- `confirmed`: one canonical, substantive Roadmap contains the marker.
-- `unconfirmed`: one canonical Roadmap exists but lacks the marker.
-- `none`: no canonical candidate exists.
-- `ambiguous`: candidates or links conflict.
+- `confirmed`: one canonical, substantive `ROADMAP.md` exists.
+- `unconfirmed`: no confirmed file exists, but one substantive `ROADMAP.proposed.md` exists.
+- `none`: neither filename exists.
+- `ambiguous`: confirmed candidates conflict or the selected path is unsafe.
 
 Return `READY` immediately for `confirmed`, including the canonical path and evidence classification. Return `BLOCKED` for `ambiguous` or malformed evidence.
 
@@ -75,7 +70,6 @@ requested_skill: <requested_skill>
 evidence: none | unconfirmed
 candidate: <path or none>
 preferred_path: Design, review, and confirm the canonical Roadmap yourself.
-ai_assistance: Use $grill-me when installed, then review and confirm the resulting Roadmap yourself.
 fallback: $createroadmap can create or reconcile a proposed Roadmap, but it is not the recommended path.
 
 Should I invoke $createroadmap now as the fallback and return to $<return_to_skill> after confirmation?
@@ -98,7 +92,7 @@ Return exactly one status:
 roadmap_gate: READY | ROADMAP_REQUIRED | BLOCKED
 requested_skill: <name>
 evidence: confirmed | unconfirmed | none | ambiguous | bootstrap-exception
-roadmap_path: <canonical path or none>
+roadmap_path: <confirmed ROADMAP.md, proposed draft path, or none>
 return_to_skill: <name>
 reason: <short reason when not READY>
 ```

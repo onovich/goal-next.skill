@@ -12,6 +12,9 @@ $manifestPath = Join-Path $repoRoot "skill-set.json"
 $validatorPath = Join-Path $PSScriptRoot "Validate-Skills.ps1"
 
 & $validatorPath -RepoRoot $repoRoot
+if ($LASTEXITCODE -ne 0) {
+  throw "Skill validation failed; installation stopped before copying files."
+}
 
 if ([string]::IsNullOrWhiteSpace($DestinationRoot)) {
   $codexRoot = $env:CODEX_HOME

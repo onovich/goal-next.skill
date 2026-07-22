@@ -1,11 +1,13 @@
 ---
 name: createroadmap
-description: Fallback support for creating, reconciling, refreshing, replanning, or confirming the canonical project Roadmap required by GoalNext workflows. Use only when the user explicitly chooses this bundled fallback after being encouraged to design and confirm the Roadmap themselves, or to use $grill-me when they want AI-assisted roadmapping. Consume user-owned documents and decisions, require explicit confirmation, and return to $roadmapgate without creating roles, threads, or implementation work.
+description: Fallback support for creating, reconciling, refreshing, replanning, or confirming the canonical project Roadmap required by GoalNext workflows. Use only when the user explicitly chooses this bundled fallback after being encouraged to design the Roadmap themselves. Build from project documents or a free-form description, use the bundled $askme only for bounded blocking decisions, keep drafts in ROADMAP.proposed.md, promote them to ROADMAP.md only after explicit confirmation, and return to $roadmapgate without creating roles, threads, or implementation work.
 ---
 
 # CreateRoadmap
 
-CreateRoadmap is the bundled fallback for turning project evidence and user intent into a durable, explicitly confirmed phase map. The preferred path is a user-designed Roadmap; when the user wants AI assistance, recommend `$grill-me`. Use this skill only after the user explicitly selects the fallback, including through RoadmapGate. It is a bootstrap exception to the Roadmap prerequisite; do not invoke `$roadmapgate` before it.
+CreateRoadmap is the bundled fallback for turning project evidence and user intent into a durable, explicitly confirmed phase map. The preferred path is a user-designed Roadmap. Use this skill only after the user explicitly selects the fallback, including through RoadmapGate. It is a bootstrap exception to the Roadmap prerequisite; do not invoke `$roadmapgate` before it.
+
+CreateRoadmap is self-contained within this bundle. Do not invoke or require an external interview or roadmapping skill.
 
 Do not present CreateRoadmap as the project's recommended onboarding path. A direct `$createroadmap` invocation or an affirmative answer to RoadmapGate counts as choosing the fallback; state the boundary briefly and proceed without adding another approval loop.
 
@@ -13,8 +15,8 @@ Do not present CreateRoadmap as the project's recommended onboarding path. A dir
 
 Support these modes:
 
-- `create`: no canonical Roadmap exists.
-- `reconcile`: a draft exists but is unconfirmed or conflicts with current evidence.
+- `create`: neither a confirmed Roadmap nor a proposal exists.
+- `reconcile`: `ROADMAP.proposed.md` exists or source evidence conflicts with the proposal.
 - `refresh`: update evidence or status without changing the accepted direction materially.
 - `replan`: materially change outcomes, dependencies, boundaries, or sequencing.
 - `confirm`: validate and ask for confirmation of an already proposed draft.
@@ -26,28 +28,28 @@ Accept:
 mode: <mode; default create or reconcile from evidence>
 workspace: <workspace root or current working directory>
 roadmap_path: <optional canonical path; default ROADMAP.md>
+proposal_path: <optional draft path; default ROADMAP.proposed.md beside roadmap_path>
 return_to_skill: <optional skill that RoadmapGate paused>
 project_description: <optional free-form positioning, goals, and constraints>
 source_documents:
 - <optional design document path>
 ```
 
-Resolve all paths inside the selected workspace. Prefer the Git root and a root `ROADMAP.md`. If multiple plausible canonical files exist and no explicit path settles them, return `BLOCKED` rather than creating a competing Roadmap.
+Resolve all paths inside the selected workspace. Prefer the Git root, a confirmed root `ROADMAP.md`, and a sibling draft named `ROADMAP.proposed.md`. The confirmed and proposal basenames are part of the contract; do not use hidden markers or arbitrary filenames as substitutes. If multiple plausible canonical files exist and no explicit path settles them, return `BLOCKED` rather than creating a competing Roadmap.
 
 ## Source Priority
 
 Build the fallback Roadmap from the highest available source in this order:
 
 1. Existing user-owned Roadmap material, design documents, product specifications, architecture decisions, handoffs, and accepted history.
-2. The user's free-form project positioning, goals, success conditions, constraints, and any conclusions they already approved through `$grill-me`.
-3. When the available evidence is too thin and the user wants AI assistance, recommend `$grill-me` as the preferred interview. Ask before invoking it and treat its output as proposed input that the user must still review.
-4. The bundled `$askme` interview only as the final fallback for specific high-impact ambiguities when grill-me is unavailable, declined, or insufficient and the user still wants CreateRoadmap to continue.
+2. The user's free-form project positioning, goals, success conditions, constraints, and previously approved planning conclusions.
+3. The bundled `$askme` interview only for specific high-impact ambiguities that still block confirmation after a proposal exists.
 
 Read supplied design documents before asking questions. Treat accepted project evidence as binding unless the user explicitly supersedes it. When documents and the user's latest description conflict, show the conflict and ask which should govern; never choose silently.
 
 If neither usable documents nor a project description exists, make the first question an open intake request that lets the user paste one description covering project positioning, desired outcome, constraints, and any design-document paths. This is a control question, not an AskMe decision-budget question.
 
-When evidence is insufficient and `$grill-me` is available, explain that it is the recommended AI-assisted roadmapping interview and ask whether to invoke it. Do not invoke it silently. If it is unavailable, declined, or still leaves a bounded ambiguity, create the proposed Roadmap draft first, then explicitly invoke `$askme` with:
+When evidence remains insufficient after intake, first create the proposed Roadmap draft from established facts and mark unresolved points explicitly. Then invoke `$askme` only for bounded ambiguities that block confirmation, using:
 
 ```text
 caller: createroadmap
@@ -62,7 +64,7 @@ Use `$listtodecide` with the same `caller` and `roadmap_bootstrap` fields only w
 
 ## Draft The Roadmap
 
-Create or update the caller-selected canonical file. A proposed Roadmap must not contain the confirmed marker. For `replan`, remove the marker in the same patch that introduces the first material proposal; preserve it during a purely evidentiary `refresh` only when phase meaning and ordering remain unchanged.
+Create or update the caller-selected `ROADMAP.proposed.md`. Never place unconfirmed content in `ROADMAP.md`. For `replan`, keep the existing confirmed `ROADMAP.md` unchanged while drafting its replacement. A purely evidentiary `refresh` may minimally update `ROADMAP.md` only when phase meaning and ordering remain unchanged; otherwise use the proposal file.
 
 Use this default structure, adapting headings only when the project already has a compatible format:
 
@@ -125,15 +127,11 @@ Show the proposed phase map or a concise material-change summary. Ask one explic
 Do you confirm this Roadmap as the current prerequisite for the workflow?
 ```
 
-Only an unambiguous yes to this exact confirmation step authorizes adding this standalone marker near the top of the canonical file:
+Only an unambiguous yes to this exact confirmation step authorizes promoting the complete proposal to the canonical `ROADMAP.md` filename. If a confirmed Roadmap already exists during `replan`, replace it only after this approval so Git records the accepted change; remove the promoted `ROADMAP.proposed.md` rather than leaving two active-looking copies. Also set the human-readable status to `confirmed` when the format has one.
 
-```text
-<!-- codex-roadmap: confirmed -->
-```
+A prior request to create, edit, or use a Roadmap is not confirmation. Silence, partial approval, approval of one phase, or acceptance of an interview answer is not confirmation.
 
-Also set the human-readable status to `confirmed` when the format has one. A prior request to create, edit, or use a Roadmap is not confirmation. Silence, partial approval, approval of one phase, or acceptance of an interview answer is not confirmation.
-
-After writing the marker, re-read the complete file and verify it occurs exactly once.
+After promotion, re-read the complete `ROADMAP.md`, verify that it is substantive, confirm that its basename is exact, and verify that the promoted proposal no longer exists.
 
 ## Handoff And Terminal Contract
 
@@ -142,7 +140,7 @@ Return exactly one status:
 ```text
 createroadmap: CONFIRMED | PROPOSED | BLOCKED | CANCELLED
 roadmap_path: <canonical path or none>
-confirmation_evidence: exact-marker | none
+confirmation_evidence: canonical-filename | none
 next_ready_phase: <phase or none>
 return_to_skill: <name or none>
 reason: <short reason when not CONFIRMED>

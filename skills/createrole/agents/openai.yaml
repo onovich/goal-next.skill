@@ -1,0 +1,6 @@
+interface:
+  display_name: "CreateRole"
+  short_description: "Design and create visible role threads"
+  default_prompt: "Use $createrole to design and create an approved visible role graph."
+policy:
+  allow_implicit_invocation: false

@@ -219,19 +219,31 @@ foreach ($name in $declared.Keys) {
 
   if ($name -eq 'roadmapgate') {
     if (
-      $skillText -notmatch '<!-- codex-roadmap: confirmed -->' -or
+      $skillText -notmatch 'ROADMAP\.md' -or
+      $skillText -notmatch 'ROADMAP\.proposed\.md' -or
       $skillText -notmatch '\$createroadmap' -or
-      $skillText -notmatch '\$grill-me' -or
       $skillText -notmatch 'preferred_path:' -or
-      $skillText -notmatch 'fallback:'
+      $skillText -notmatch 'fallback:' -or
+      $skillText -notmatch 'without invoking external planning skills'
     ) {
-      Add-Failure "RoadmapGate is missing confirmation evidence, preferred paths, or fallback handoff: $skillPath"
+      Add-Failure "RoadmapGate is missing filename evidence, preferred paths, or fallback handoff: $skillPath"
+    }
+    if ($skillText -match '<!--\s*codex-roadmap:') {
+      Add-Failure "RoadmapGate must use filenames instead of an embedded confirmation marker: $skillPath"
     }
   }
 
   if ($name -eq 'createroadmap') {
-    if ($skillText -notmatch '<!-- codex-roadmap: confirmed -->' -or $skillText -notmatch 'Do you confirm this Roadmap') {
-      Add-Failure "CreateRoadmap is missing its exact marker or explicit confirmation question: $skillPath"
+    if (
+      $skillText -notmatch 'ROADMAP\.md' -or
+      $skillText -notmatch 'ROADMAP\.proposed\.md' -or
+      $skillText -notmatch 'Do you confirm this Roadmap' -or
+      $skillText -notmatch 'confirmation_evidence: canonical-filename \| none'
+    ) {
+      Add-Failure "CreateRoadmap is missing its filename promotion or explicit confirmation contract: $skillPath"
+    }
+    if ($skillText -match '<!--\s*codex-roadmap:') {
+      Add-Failure "CreateRoadmap must use filenames instead of an embedded confirmation marker: $skillPath"
     }
     if ($invocationClasses[$name] -ne 'support') {
       Add-Failure "CreateRoadmap must be classified as support: $skillPath"
@@ -239,11 +251,8 @@ foreach ($name in $declared.Keys) {
     if ($agentText -notmatch '(?m)^  allow_implicit_invocation:\s*false\s*$') {
       Add-Failure "CreateRoadmap must disable implicit invocation: $agentPath"
     }
-    if ($skillText -notmatch '(?i)fallback' -or $skillText -notmatch '\$grill-me') {
-      Add-Failure "CreateRoadmap must present itself as fallback and recommend grill-me: $skillPath"
-    }
-    if ($skillText -match '\$grill-with-docs') {
-      Add-Failure "CreateRoadmap must recommend grill-me instead of grill-with-docs: $skillPath"
+    if ($skillText -notmatch '(?i)fallback' -or $skillText -notmatch '(?i)self-contained' -or $skillText -notmatch '\$askme') {
+      Add-Failure "CreateRoadmap must be a self-contained fallback using bundled AskMe: $skillPath"
     }
   }
 
@@ -268,6 +277,37 @@ foreach ($name in $declared.Keys) {
     }
     if ($skillText -match '(?i)\bgpt-[0-9]') {
       Add-Failure "ChooseModel must not hardcode model ids: $skillPath"
+    }
+  }
+
+  if ($name -eq 'createrole') {
+    if ($invocationClasses[$name] -ne 'core-entry') {
+      Add-Failure "CreateRole must be classified as core-entry: $skillPath"
+    }
+    if ($agentText -notmatch '(?m)^  allow_implicit_invocation:\s*false\s*$') {
+      Add-Failure "CreateRole must disable implicit invocation: $agentPath"
+    }
+    foreach ($requiredFragment in @(
+      'Role.proposed.md',
+      'list_projects',
+      'create_thread',
+      'Sequential creation is a safety property',
+      'Do you approve this Role Graph and authorize CreateRole to create exactly',
+      'selection_mode: configured-default',
+      'current workspace differs from the saved project path',
+      'goal_token_budget',
+      'createrole: READY | PROPOSED | PARTIAL | BLOCKED | CANCELLED',
+      'Never substitute collaboration subagents'
+    )) {
+      if (-not $skillText.Contains($requiredFragment)) {
+        Add-Failure "CreateRole contract is missing '$requiredFragment': $skillPath"
+      }
+    }
+    if ($skillText -match '(?i)\bgpt-[0-9]') {
+      Add-Failure "CreateRole must not hardcode model ids: $skillPath"
+    }
+    if ($skillText -match '<!--\s*(?:codex-role|role-graph):') {
+      Add-Failure "CreateRole must use Role filenames instead of embedded evidence markers: $skillPath"
     }
   }
 }
@@ -302,49 +342,150 @@ if (-not (Test-Path -LiteralPath $rootRoadmapPath)) {
   Add-Failure "Missing canonical repository Roadmap: $rootRoadmapPath"
 } else {
   $rootRoadmapText = Read-StrictUtf8 $rootRoadmapPath
-  $confirmationMarkers = [regex]::Matches(
-    $rootRoadmapText,
-    '(?m)^<!-- codex-roadmap: confirmed -->\r?$'
-  )
-  if ($confirmationMarkers.Count -ne 1) {
-    Add-Failure "Canonical repository Roadmap must contain exactly one confirmed marker: $rootRoadmapPath"
+  if ($rootRoadmapText -match '<!--\s*codex-roadmap:') {
+    Add-Failure "Canonical repository Roadmap must use its filename instead of an embedded confirmation marker: $rootRoadmapPath"
+  }
+  foreach ($requiredRoadmapPattern in @(
+    '(?m)^Status:\s*confirmed\s*$',
+    '(?m)^## Phase Map\s*$',
+    '(?m)^## Next Ready Phase\s*$'
+  )) {
+    if ($rootRoadmapText -notmatch $requiredRoadmapPattern) {
+      Add-Failure "Canonical repository Roadmap is missing substantive confirmed content matching '$requiredRoadmapPattern': $rootRoadmapPath"
+    }
+  }
+}
+
+$gitWorkTree = (& git -C $RepoRoot rev-parse --is-inside-work-tree 2>$null)
+$isGitWorkTree = $LASTEXITCODE -eq 0 -and $gitWorkTree -eq 'true'
+if ($isGitWorkTree) {
+  $commitMetadata = @(& git -C $RepoRoot log --all --format='%H%x09%ae%x09%ce')
+  foreach ($metadataLine in $commitMetadata) {
+    $metadataParts = $metadataLine -split "`t", 3
+    if ($metadataParts.Count -ne 3) {
+      Add-Failure 'Unable to parse Git commit privacy metadata.'
+      continue
+    }
+
+    $commitId = $metadataParts[0].Substring(0, 7)
+    if ($metadataParts[1] -notmatch '(?i)^[^@\s]+@users\.noreply\.github\.com$') {
+      Add-Failure "Git commit $commitId has a non-private author email. Use a GitHub noreply address before publishing."
+    }
+    if ($metadataParts[2] -notmatch '(?i)^[^@\s]+@users\.noreply\.github\.com$') {
+      Add-Failure "Git commit $commitId has a non-private committer email. Use a GitHub noreply address before publishing."
+    }
   }
 }
 
 $textExtensions = @('.md', '.yaml', '.yml', '.json', '.ps1', '.py', '.sh', '.txt')
-$gitRoot = Join-Path $RepoRoot ".git"
+$gitRoot = [System.IO.Path]::GetFullPath((Join-Path $RepoRoot ".git")) + [System.IO.Path]::DirectorySeparatorChar
 $validatorPath = [System.IO.Path]::GetFullPath($MyInvocation.MyCommand.Path)
+$externalRoadmapSkillNames = @(
+  ('grill' + '-me'),
+  ('grill' + '-with-docs')
+)
+$readmeOnlyRecommendationPaths = @(
+  [System.IO.Path]::GetFullPath((Join-Path $RepoRoot 'README.md')),
+  [System.IO.Path]::GetFullPath((Join-Path $RepoRoot 'README.zh-CN.md'))
+)
 $sensitivePatterns = [ordered]@{
   "user-specific Windows path" = '(?i)\b[A-Z]:\\Users\\[^\\\s<>]+'
+  "user-specific Unix path" = '(?i)/(?:Users|home)/(?!<)[^/\s<>]+'
   "personal workspace path" = '(?i)\b[A-Z]:\\(?:Desktop|Documents|Downloads|Projects|LabProjects|Workspaces)\\'
   "literal UUID or thread id" = '(?i)\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b'
+  "literal thread route id" = '(?im)\b(?:thread[_ -]?id|threadId)\s*[:=]\s*(?!<|none|unknown)[0-9a-z][0-9a-z-]{7,}'
   "email address" = '(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b'
   "OpenAI-style secret" = '\bsk-[A-Za-z0-9_-]{16,}\b'
   "GitHub-style token" = '\bgh[pousr]_[A-Za-z0-9]{20,}\b'
+  "GitHub fine-grained token" = '\bgithub_pat_[A-Za-z0-9_]{20,}\b'
   "AWS access key" = '\bAKIA[A-Z0-9]{16}\b'
-  "private key" = '-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----'
+  "Google API key" = '\bAIza[A-Za-z0-9_-]{30,}\b'
+  "Slack token" = '\bxox[baprs]-[A-Za-z0-9-]{10,}\b'
+  "JWT" = '\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b'
+  "credentialed URL" = '(?i)https?://[^/\s:@]+:[^@\s/]+@'
+  "private network address" = '(?<![0-9])(?:10\.(?:[0-9]{1,3}\.){2}[0-9]{1,3}|192\.168\.[0-9]{1,3}\.[0-9]{1,3}|172\.(?:1[6-9]|2[0-9]|3[01])\.[0-9]{1,3}\.[0-9]{1,3})(?![0-9])'
+  "high-entropy literal" = '(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{48,}(?![A-Za-z0-9_-])'
+  "private key" = '-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----'
 }
 
 foreach ($file in Get-ChildItem -LiteralPath $RepoRoot -Recurse -File -Force) {
   if ($file.FullName.StartsWith($gitRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
     continue
   }
+  if (
+    $file.Name -match '(?i)^(?:\.env(?:\..*)?|id_rsa|id_ed25519|credentials(?:\..*)?|cookies(?:\..*)?|auth(?:\..*)?)$' -or
+    $file.Extension -match '(?i)^\.(?:pem|p12|pfx|key|kdbx)$'
+  ) {
+    Add-Failure "Possible sensitive file by name: $($file.FullName)"
+  }
   if ($file.Extension -notin $textExtensions) {
     continue
   }
   $text = Read-StrictUtf8 $file.FullName
+  $fullPath = [System.IO.Path]::GetFullPath($file.FullName)
   if ($text.Length -gt 0 -and -not $text.EndsWith("`n")) {
     Add-Failure "Missing final newline: $($file.FullName)"
   }
   if ([regex]::IsMatch($text, '(?m)[ \t]+\r?$')) {
     Add-Failure "Trailing whitespace: $($file.FullName)"
   }
-  if ([System.IO.Path]::GetFullPath($file.FullName) -eq $validatorPath) {
+  if ($fullPath -notin $readmeOnlyRecommendationPaths) {
+    foreach ($externalName in $externalRoadmapSkillNames) {
+      if ($text.IndexOf($externalName, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
+        Add-Failure "README-only external Roadmap recommendation appears outside README: $($file.FullName)"
+      }
+    }
+  }
+  if ($fullPath -eq $validatorPath) {
     continue
   }
   foreach ($label in $sensitivePatterns.Keys) {
     if ([regex]::IsMatch($text, $sensitivePatterns[$label])) {
       Add-Failure "Possible $label in $($file.FullName)"
+    }
+  }
+}
+
+if ($isGitWorkTree) {
+  $historyFindingKeys = New-Object 'System.Collections.Generic.HashSet[string]'
+  $historyObjects = @(& git -C $RepoRoot rev-list --objects --all)
+  foreach ($historyObject in $historyObjects) {
+    $objectParts = $historyObject -split ' ', 2
+    if ($objectParts.Count -ne 2) {
+      continue
+    }
+
+    $objectId = $objectParts[0]
+    $historyPath = $objectParts[1]
+    if ([System.IO.Path]::GetExtension($historyPath) -notin $textExtensions) {
+      continue
+    }
+    if ($historyPath.Replace('/', '\') -eq 'scripts\Validate-Skills.ps1') {
+      continue
+    }
+
+    $objectType = (& git -C $RepoRoot cat-file -t $objectId 2>$null)
+    if ($LASTEXITCODE -ne 0 -or $objectType -ne 'blob') {
+      continue
+    }
+    $historyText = @(& git -C $RepoRoot cat-file blob $objectId) -join "`n"
+    foreach ($label in $sensitivePatterns.Keys) {
+      if ([regex]::IsMatch($historyText, $sensitivePatterns[$label])) {
+        $findingKey = "$objectId|$label|$historyPath"
+        if ($historyFindingKeys.Add($findingKey)) {
+          Add-Failure "Possible $label in reachable Git history object $($objectId.Substring(0, 7)) at $historyPath"
+        }
+      }
+    }
+  }
+
+  $historyCommits = @(& git -C $RepoRoot rev-list --all)
+  foreach ($historyCommit in $historyCommits) {
+    $commitMessage = @(& git -C $RepoRoot show -s --format='%B' $historyCommit) -join "`n"
+    foreach ($label in $sensitivePatterns.Keys) {
+      if ([regex]::IsMatch($commitMessage, $sensitivePatterns[$label])) {
+        Add-Failure "Possible $label in commit message $($historyCommit.Substring(0, 7))"
+      }
     }
   }
 }
