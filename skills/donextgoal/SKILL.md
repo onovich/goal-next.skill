@@ -7,6 +7,20 @@ description: Executor-side skill for carrying out an existing next-phase goal-mo
 
 Use this skill to execute an existing phase goal guide. This skill is the executor-side companion to `GoalNext`: it consumes a guide dispatched by the planner, executes it, then reports completion back to the planner/checker session.
 
+## Mandatory Roadmap Gate
+
+Before the role gate, guide discovery, repository reads, edits, execution, or cross-thread messages, explicitly invoke `$roadmapgate` with:
+
+```text
+requested_skill: donextgoal
+workspace: <active workspace>
+return_to_skill: donextgoal
+caller: donextgoal
+roadmap_bootstrap: false
+```
+
+Continue only when it returns `roadmap_gate: READY`. Verify that the active guide corresponds to a phase in the returned canonical Roadmap. If it returns `ROADMAP_REQUIRED` or `BLOCKED`, stop DoNextGoal and preserve the gate's CreateRoadmap question or blocked reason. A dispatched guide alone is not substitute confirmation evidence.
+
 ## Mandatory Role Gate
 
 Before implementation:

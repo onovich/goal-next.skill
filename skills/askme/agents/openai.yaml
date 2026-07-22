@@ -1,0 +1,7 @@
+interface:
+  display_name: "AskMe"
+  short_description: "Internal interview for high-impact decisions"
+  default_prompt: "Use $askme to resolve the blocking decisions in the caller-owned target draft."
+
+policy:
+  allow_implicit_invocation: false

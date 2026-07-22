@@ -1,0 +1,7 @@
+interface:
+  display_name: "CreateRoadmap"
+  short_description: "Fallback for a confirmed project roadmap"
+  default_prompt: "Use $createroadmap only as a fallback to create, reconcile, or confirm the project roadmap."
+
+policy:
+  allow_implicit_invocation: false

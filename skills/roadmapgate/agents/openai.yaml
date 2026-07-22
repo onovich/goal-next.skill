@@ -1,0 +1,7 @@
+interface:
+  display_name: "RoadmapGate"
+  short_description: "Verify the confirmed-roadmap prerequisite"
+  default_prompt: "Use $roadmapgate to verify confirmed Roadmap evidence before the caller continues."
+
+policy:
+  allow_implicit_invocation: false

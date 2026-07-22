@@ -7,6 +7,20 @@ description: Architect/strategist-only skill for creating the next-phase goal-mo
 
 Use this skill to produce a reusable next-phase goal guide, not merely a chat answer. It is the planner-side companion to `DoNextGoal`: after writing the guide, dispatch the executor through `Role.md` instead of asking the user to relay the plan.
 
+## Mandatory Roadmap Gate
+
+Before the role gate, project reads, planning, `Role.md` work, guide creation, or dispatch, explicitly invoke `$roadmapgate` with:
+
+```text
+requested_skill: goalnext
+workspace: <active workspace>
+return_to_skill: goalnext
+caller: goalnext
+roadmap_bootstrap: false
+```
+
+Continue only when it returns `roadmap_gate: READY`. Use the returned canonical Roadmap as the source for phase ordering. If it returns `ROADMAP_REQUIRED` or `BLOCKED`, stop GoalNext and preserve the gate's CreateRoadmap question or blocked reason. A handoff, TODO, Goal Guide, or Role Route is not substitute confirmation evidence.
+
 ## Mandatory Role Gate
 
 Before writing or updating a next-phase guide, check the active role in system, developer, user, and project instructions.

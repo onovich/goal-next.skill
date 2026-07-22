@@ -14,6 +14,20 @@ The core rule is:
 3. If validation passes, run `$goalnext` only from the planner/architect/strategist role, then let `GoalNext` dispatch `$donextgoal` to the executor.
 4. Never execute `$donextgoal` locally from the planner/checker session.
 
+## Mandatory Roadmap Gate
+
+Before the role gate, repository inspection, validation, routing, or cross-thread messages, explicitly invoke `$roadmapgate` with:
+
+```text
+requested_skill: checkandgoal
+workspace: <active workspace>
+return_to_skill: checkandgoal
+caller: checkandgoal
+roadmap_bootstrap: false
+```
+
+Continue only when it returns `roadmap_gate: READY`. Use the returned canonical Roadmap to identify the phase outcome and exit criteria under review. If it returns `ROADMAP_REQUIRED` or `BLOCKED`, stop CheckAndGoal and preserve the gate's CreateRoadmap question or blocked reason. A validation report or Goal Guide alone is not substitute confirmation evidence.
+
 ## Mandatory Role Gate
 
 Before validating or planning:

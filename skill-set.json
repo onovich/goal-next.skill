@@ -1,34 +1,124 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "name": "goal-next-workflows",
   "skills": [
     {
+      "name": "createroadmap",
+      "path": "skills/createroadmap",
+      "displayName": "CreateRoadmap",
+      "invocation": "support",
+      "optionalDependencies": [
+        "grill-me"
+      ]
+    },
+    {
+      "name": "roadmapgate",
+      "path": "skills/roadmapgate",
+      "displayName": "RoadmapGate",
+      "invocation": "internal",
+      "optionalDependencies": [
+        "grill-me"
+      ]
+    },
+    {
+      "name": "choosemodel",
+      "path": "skills/choosemodel",
+      "displayName": "ChooseModel",
+      "invocation": "support"
+    },
+    {
       "name": "nameyou",
       "path": "skills/nameyou",
-      "displayName": "NameYou"
+      "displayName": "NameYou",
+      "invocation": "core-entry"
     },
     {
       "name": "listtodecide",
       "path": "skills/listtodecide",
-      "displayName": "ListToDecide"
+      "displayName": "ListToDecide",
+      "invocation": "support"
+    },
+    {
+      "name": "askme",
+      "path": "skills/askme",
+      "displayName": "AskMe",
+      "invocation": "internal"
     },
     {
       "name": "goalnext",
       "path": "skills/goalnext",
-      "displayName": "GoalNext"
+      "displayName": "GoalNext",
+      "invocation": "core-entry"
     },
     {
       "name": "donextgoal",
       "path": "skills/donextgoal",
-      "displayName": "DoNextGoal"
+      "displayName": "DoNextGoal",
+      "invocation": "workflow-transition"
     },
     {
       "name": "checkandgoal",
       "path": "skills/checkandgoal",
-      "displayName": "CheckAndGoal"
+      "displayName": "CheckAndGoal",
+      "invocation": "workflow-transition"
     }
   ],
   "workflowEdges": [
+    {
+      "from": "choosemodel",
+      "to": "roadmapgate",
+      "kind": "confirmed-roadmap-prerequisite"
+    },
+    {
+      "from": "nameyou",
+      "to": "roadmapgate",
+      "kind": "confirmed-roadmap-prerequisite"
+    },
+    {
+      "from": "listtodecide",
+      "to": "roadmapgate",
+      "kind": "confirmed-roadmap-prerequisite"
+    },
+    {
+      "from": "askme",
+      "to": "roadmapgate",
+      "kind": "confirmed-roadmap-prerequisite"
+    },
+    {
+      "from": "goalnext",
+      "to": "roadmapgate",
+      "kind": "confirmed-roadmap-prerequisite"
+    },
+    {
+      "from": "donextgoal",
+      "to": "roadmapgate",
+      "kind": "confirmed-roadmap-prerequisite"
+    },
+    {
+      "from": "checkandgoal",
+      "to": "roadmapgate",
+      "kind": "confirmed-roadmap-prerequisite"
+    },
+    {
+      "from": "roadmapgate",
+      "to": "createroadmap",
+      "kind": "missing-roadmap-bootstrap"
+    },
+    {
+      "from": "createroadmap",
+      "to": "askme",
+      "kind": "fallback-interview"
+    },
+    {
+      "from": "createroadmap",
+      "to": "listtodecide",
+      "kind": "bootstrap-decision-support"
+    },
+    {
+      "from": "createroadmap",
+      "to": "goalnext",
+      "kind": "confirmed-handoff"
+    },
     {
       "from": "nameyou",
       "to": "goalnext",

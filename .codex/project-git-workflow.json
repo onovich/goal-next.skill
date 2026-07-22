@@ -8,6 +8,7 @@
   "statusCommand": "git status --short --branch",
   "validationCommands": [
     "powershell -ExecutionPolicy Bypass -File scripts/Validate-Skills.ps1",
+    "powershell -ExecutionPolicy Bypass -File scripts/Test-WorkflowContracts.ps1",
     "git diff --check"
   ],
   "stagingPolicy": "selected files only",

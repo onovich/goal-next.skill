@@ -1,0 +1,7 @@
+interface:
+  display_name: "ChooseModel"
+  short_description: "Recommend model and effort for a new thread"
+  default_prompt: "Use $choosemodel to recommend an available model and reasoning effort for this new Codex thread."
+
+policy:
+  allow_implicit_invocation: false

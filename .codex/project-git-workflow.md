@@ -25,6 +25,7 @@ Run these before every commit and push:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/Validate-Skills.ps1
+powershell -ExecutionPolicy Bypass -File scripts/Test-WorkflowContracts.ps1
 git diff --check
 ```
 

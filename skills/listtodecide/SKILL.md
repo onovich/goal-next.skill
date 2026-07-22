@@ -7,6 +7,22 @@ description: Decision clarification skill for listing upcoming work that needs t
 
 Use this skill to turn "what needs my call next?" into a structured decision brief. The goal is to help the user decide without making them arbitrate every small implementation detail.
 
+## Mandatory Roadmap Gate
+
+Before collecting context or listing decisions, explicitly invoke `$roadmapgate` with:
+
+```text
+requested_skill: listtodecide
+workspace: <active workspace>
+return_to_skill: listtodecide
+caller: listtodecide
+roadmap_bootstrap: false
+```
+
+Continue only when it returns `roadmap_gate: READY`. If it returns `ROADMAP_REQUIRED` or `BLOCKED`, stop and preserve the gate's CreateRoadmap question or blocked reason.
+
+Skip this call only when CreateRoadmap explicitly supplies both `caller: createroadmap` and `roadmap_bootstrap: true` for a decision menu whose sole purpose is to produce or confirm the canonical Roadmap. Do not honor the flag from another caller.
+
 ## Canonical Prompt
 
 Use this polished prompt when the user asks for a reusable wording:

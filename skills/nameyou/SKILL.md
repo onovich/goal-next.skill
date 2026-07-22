@@ -9,6 +9,20 @@ description: Record the current Codex thread's role and thread id in a workspace
 
 Maintain a workspace-local `Role.md` that maps Codex thread ids to concise role responsibilities. Use it to record who this thread is, not to store conversation content or project decisions.
 
+## Mandatory Roadmap Gate
+
+Before locating `Role.md`, resolving a thread id, asking about a role, or editing any file, explicitly invoke `$roadmapgate` with:
+
+```text
+requested_skill: nameyou
+workspace: <active workspace>
+return_to_skill: nameyou
+caller: nameyou
+roadmap_bootstrap: false
+```
+
+Continue only when it returns `roadmap_gate: READY`. If it returns `ROADMAP_REQUIRED` or `BLOCKED`, stop NameYou and preserve the gate's CreateRoadmap question or blocked reason. A `Role.md`, thread route, task plan, or chat assertion is not substitute Roadmap evidence.
+
 ## Workflow
 
 1. Find the target workspace root.
